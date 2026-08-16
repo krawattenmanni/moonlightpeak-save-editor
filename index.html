@@ -4,9 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Moonlight Peaks — Save Editor</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+
+<!-- OFFLINE-ÄNDERUNG: Google Fonts deaktiviert, App nutzt System-Schriftarten -->
+<!-- <link rel="preconnect" href="https://fonts.googleapis.com"> -->
+<!-- <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"> -->
+
+<!-- OFFLINE-ÄNDERUNG: pako.js wird lokal geladen (muss im selben Assets-Ordner liegen) -->
+<script src="pako.min.js"></script>
+
 <style>
   :root{
     --bg: #130d18;
@@ -367,19 +372,31 @@
     return obj;
   }
 
-  function objectToGzipBlob(obj){
+  // SKETCHWARE-ÄNDERUNG: Wandelt die GZIP-Daten in eine Base64 Data-URL um, 
+  // da Sketchware Android-WebViews oft Probleme mit der Blob-Generierung haben.
+  function objectToGzipDataUrl(obj){
     const text = '\uFEFF' + JSON.stringify(obj);
     const bytes = new TextEncoder().encode(text);
     const gz = pako.gzip(bytes);
-    return new Blob([gz], {type:'application/gzip'});
+    
+    // Uint8Array in einen binären String umwandeln
+    let binary = '';
+    const len = gz.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(gz[i]);
+    }
+    const base64 = window.btoa(binary);
+    return 'data:application/gzip;base64,' + base64;
   }
 
-  function downloadBlob(blob, filename){
-    const url = URL.createObjectURL(blob);
+  // SKETCHWARE-ÄNDERUNG: Nutzt die Data URL für den Download
+  function downloadData(dataUrl, filename){
     const a = document.createElement('a');
-    a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    a.href = dataUrl; 
+    a.download = filename;
+    document.body.appendChild(a); 
+    a.click(); 
+    a.remove();
   }
 
   // =========================================================
@@ -662,9 +679,9 @@
     btn.textContent = labelText;
     btn.style.marginTop = '18px';
     btn.addEventListener('click', ()=>{
-      const blob = objectToGzipBlob(getObj());
-      downloadBlob(blob, getFilename());
-      toast('Heruntergeladen — jetzt zurück in den Spielordner verschieben');
+      const dataUrl = objectToGzipDataUrl(getObj());
+      downloadData(dataUrl, getFilename());
+      toast('Wird heruntergeladen — schaue in deine Benachrichtigungen/Downloads');
     });
     return btn;
   }
